@@ -1,0 +1,120 @@
+###### ACTIVE RECORD ######
+$ bundle
+$ be rake db:create
+
+$ be rake generate:migration NAME=create_dogs
+$ be rake generate:migration NAME=create_owners
+$ be rake generate:migration NAME=create_ratings
+
+$ be rake generate:model NAME=Dog
+$ be rake generate:model NAME=Owner
+$ be rake generate:model NAME=Rating
+
+$ be rake db:migrate
+
+$ be rake console
+  ApplicationRecord.connection.tables
+  ApplicationRecord.connection.columns(:dogs)
+  Dog
+  Dog.all
+  exit
+
+$ be rake db:rollback
+$ be rake db:drop
+
+####### MIGRATIONS #######
+create_table :dogs do |t|
+  t.string :name
+end
+
+create_table :judges do |t|
+  t.string :name
+end
+
+create_table :ratings do |t|
+  t.integer :rating
+  t.integer :judge_id
+  t.integer :dog_id
+end
+
+######## MODELS ########
+class ApplicationRecord < ActiveRecord::Base
+  self.abstract_class = true
+end
+
+class Dog < ApplicationRecord
+  has_many :ratings
+  has_many :judges, through: :ratings
+end
+
+class Judge < ApplicationRecord
+  has_many :ratings
+  has_many :dogs, through: :ratings
+  # has_many :ratings, { :foreign_key => :rating_id }
+  # has_many :dogs, { :foreign_key => :judge_id }
+end
+
+class Rating < ApplicationRecord
+  belongs_to :dog
+  belongs_to :judge
+end
+
+
+##### ADD/EDIT/QUERY #####
+judge1 = Judge.first
+dog1 = Dog.first
+rating1 = Rating.new(dog: dog1, judge: judge1, rating: 8)
+rating1.save
+
+judge2 = Judge.all[1]
+dog2 = Dog.all[1]
+rating2 = Rating.new(dog: dog2, judge: judge2, rating: 3)
+rating2.save
+
+judge3 = Judge.all[2]
+dog3 = Dog.all[2]
+rating3 = Rating.new(dog: dog3, judge: judge3, rating: 7)
+rating3.save
+
+
+##### Eager Load #####
+ratings = Rating.includes(:dog).all
+ratings = Rating.includes(:dog, :judge)
+rating_1 = ratings.first
+rating_1.dog
+rating_1.judge
+
+
+Contact.includes(:account).where(accounts: {id: 1}, contacts: {id: 1}).first
+State.includes(:legislator).where(legislators: {in_office: true}, states: {state: 'TX'}).all
+
+Horse.includes(:entries,:carried_jockeys).each {|x| p x.entries; p x.carried_jockeys}
+Horse.includes(:entries,:carried_jockeys).each {|x| p x.entries; p x.carried_jockeys}
+
+contacts = Contact.includes(:account).all
+contacts.first.account.id
+Contact.includes(:account).where(accounts: {id: 1}).first
+Contact.includes(:account).where(accounts: {id: 1}, contacts: {id: 1}).first
+Contact.includes(:account).where(accounts: {id: 1}).where(contacts: {id: 1}).first
+Contact.includes(:account).where(accounts: {id: 1}, contacts: {full_name: ‘Contact 100’}).first
+Contact.includes(:account).where(accounts: {id: 1}).where(contacts: {full_name: ‘Contact 100’}).first
+===============
+Contact.find_by(full_name: ‘Contact 100’)
+Contact.includes(:account).find_by(full_name: ‘Contact 100’)
+Contact.includes(:account).find_by(accounts: {id: 1})
+Contact.includes(:account).find_by(accounts: {id: 2}, contacts: {full_name: ‘Contact 300’})
+
+################################
+new_rating = Rating.new(rating: 5)
+new_rating.create_dog(name: 'Spot', owner_id: 1)
+new_rating.save
+
+spot = Dog.find_by(name: 'Spot')
+new_rating = Rating.new(owner_id: 2, dog: spot, rating: 8)
+new_rating.save
+
+new_rating.dog
+jayda = Dog.find_by(name: 'Jayda')
+new_rating.assign_attributes(judge_id: 1, dog: jayda)
+new_rating
+new_rating.dog

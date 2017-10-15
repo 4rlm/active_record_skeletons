@@ -1,0 +1,190 @@
+###### ACTIVE RECORD ######
+$ bundle
+$ be rake db:create
+
+$ be rake generate:migration NAME=create_entries
+$ be rake generate:migration NAME=create_tags
+$ be rake generate:migration NAME=create_taggings
+
+
+$ be rake generate:model NAME=Entry
+$ be rake generate:model NAME=Tag
+$ be rake generate:model NAME=Tagging
+
+
+$ be rake db:migrate
+
+$ be rake console
+  ApplicationRecord.connection.tables
+  ApplicationRecord.connection.columns(:dogs)
+  Dog
+  Dog.all
+  exit
+
+$ be rake db:rollback
+$ be rake db:drop
+
+####### MIGRATIONS #######
+create_table :entries do |t|
+  t.string :author
+  t.string :title
+  t.string :body
+  t.timestamps
+end
+
+create_table :tags do |t|
+  t.string :tag_name
+  t.index :tag_name, unique: true
+  t.timestamps
+end
+
+create_table :taggings do |t|
+  t.references :tag, index: true
+  t.references :taggable, polymorphic: true, index: true
+  t.timestamps
+end
+
+######## MODELS ########
+class ApplicationRecord < ActiveRecord::Base
+  self.abstract_class = true
+end
+
+class Entry < ApplicationRecord
+  has_many :taggings, as: :taggable
+  has_many :tags, through: :taggings
+end
+
+class Tag < ApplicationRecord
+  validates :tag_name, uniqueness: true
+
+  has_many :taggings
+  has_many :entries, through: :taggings, source: :taggable, source_type: :Entry
+
+  def self.parse_tags(tags)
+    tags.split(',').map do |tag|
+      Tag.find_or_create_by(name: tag.strip)
+    end
+  end
+end
+
+class Tagging < ApplicationRecord
+  belongs_to :taggable, polymorphic: true
+  belongs_to :tag
+end
+
+
+####### CREATE RECORDS #######
+entry_hash1 = { author: "Arnold Palmer", title: "Golfing is Fun", body: "Let's go golfing sometime soon!" }
+entry_hash2 = { author: "Henry David Thoreau", title: "Walden Pond", body: "Descendants of Emerson and other families deeded the land around the pond to the Commonwealth of Massachusetts in 1922." }
+
+entry = Entry.find_or_initialize_by(entry_hash1)
+entry.tags << Tag.find_or_create_by(tag_name: 'Golf')
+entry.save
+
+entry = Entry.find_or_initialize_by(entry_hash2)
+entry.tags << Tag.find_or_create_by(tag_name: 'poem')
+entry.tags << Tag.find_or_create_by(tag_name: 'walden')
+entry.tags << Tag.find_or_create_by(tag_name: 'pond')
+entry.save
+
+####### QUERY RECORDS #######
+entry = Entry.all.last
+entry.tags
+entry.tags.first
+entry.tags.first.tag_name
+
+tag = Tag.all.last
+tag.entries
+tag.entries.first
+tag.entries.first.author
+tag.entries.first.title
+tag.entries.first.body
+
+taggings = Tagging.first
+taggings = Tagging.where(taggable_type: 'Entry', taggable_id: 11)
+taggings.first.tag
+taggings.first.tag.tag_name
+taggings.first.tag.entries.first.title
+
+Tagging.first
+Tag.find_by(tag_name: 'Golf').taggings.map{|x| x.taggable}
+Tag.find_by(tag_name: 'Golf').taggings
+Tagging.where(tag_id: 11).map{|x| x.taggable}
+
+Entry.find_by(author: 'Arnold Palmer').taggings.map{|x| x.taggable}
+Entry.find_by(author: 'Arnold Palmer').taggings.map{|x| x.tag}
+Entry.find_by(author: 'Arnold Palmer').taggings.first.tag
+
+####### UPDATE RECORDS #######
+
+tags = Entry.find_by(author: 'Henry David Thoreau').taggings.map{|x| x.tag}
+tags.first.update_attributes(tag_name: 'poetry')
+
+
+
+
+
+
+
+
+
+
+
+##### ADD/EDIT/QUERY #####
+judge1 = Judge.first
+dog1 = Dog.first
+rating1 = Rating.new(dog: dog1, judge: judge1, rating: 8)
+rating1.save
+
+judge2 = Judge.all[1]
+dog2 = Dog.all[1]
+rating2 = Rating.new(dog: dog2, judge: judge2, rating: 3)
+rating2.save
+
+judge3 = Judge.all[2]
+dog3 = Dog.all[2]
+rating3 = Rating.new(dog: dog3, judge: judge3, rating: 7)
+rating3.save
+
+
+##### Eager Load #####
+ratings = Rating.includes(:dog).all
+ratings = Rating.includes(:dog, :judge)
+rating_1 = ratings.first
+rating_1.dog
+rating_1.judge
+
+
+Contact.includes(:account).where(accounts: {id: 1}, contacts: {id: 1}).first
+State.includes(:legislator).where(legislators: {in_office: true}, states: {state: 'TX'}).all
+
+Horse.includes(:entries,:carried_jockeys).each {|x| p x.entries; p x.carried_jockeys}
+Horse.includes(:entries,:carried_jockeys).each {|x| p x.entries; p x.carried_jockeys}
+
+contacts = Contact.includes(:account).all
+contacts.first.account.id
+Contact.includes(:account).where(accounts: {id: 1}).first
+Contact.includes(:account).where(accounts: {id: 1}, contacts: {id: 1}).first
+Contact.includes(:account).where(accounts: {id: 1}).where(contacts: {id: 1}).first
+Contact.includes(:account).where(accounts: {id: 1}, contacts: {full_name: ‘Contact 100’}).first
+Contact.includes(:account).where(accounts: {id: 1}).where(contacts: {full_name: ‘Contact 100’}).first
+===============
+Contact.find_by(full_name: ‘Contact 100’)
+Contact.includes(:account).find_by(full_name: ‘Contact 100’)
+Contact.includes(:account).find_by(accounts: {id: 1})
+Contact.includes(:account).find_by(accounts: {id: 2}, contacts: {full_name: ‘Contact 300’})
+
+################################
+new_rating = Rating.new(rating: 5)
+new_rating.create_dog(name: 'Spot', owner_id: 1)
+new_rating.save
+
+spot = Dog.find_by(name: 'Spot')
+new_rating = Rating.new(owner_id: 2, dog: spot, rating: 8)
+new_rating.save
+
+new_rating.dog
+jayda = Dog.find_by(name: 'Jayda')
+new_rating.assign_attributes(judge_id: 1, dog: jayda)
+new_rating
+new_rating.dog

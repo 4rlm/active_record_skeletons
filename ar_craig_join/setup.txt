@@ -1,0 +1,150 @@
+###### ACTIVE RECORD ######
+$ bundle
+$ be rake db:create
+
+$ be rake generate:migration NAME=create_articles
+$ be rake generate:migration NAME=create_categories
+$ be rake generate:migration NAME=create_article_categories
+
+$ be rake generate:model NAME=Article
+$ be rake generate:model NAME=Category
+$ be rake generate:model NAME=ArticleEntry
+
+$ be rake db:migrate
+
+$ be rake console
+  ApplicationRecord.connection.tables
+  ApplicationRecord.connection.columns(:dogs)
+  Dog
+  Dog.all
+  exit
+
+$ be rake db:rollback
+$ be rake db:drop
+
+####### MIGRATIONS #######
+create_table :articles do |t|
+  t.string :title
+  t.string :description
+  t.string :author
+  t.string :email
+  t.decimal :price, :precision => 8, :scale => 2
+  t.timestamps
+end
+
+create_table :categories do |t|
+  t.string :name
+  t.index :name, unique: true
+  t.timestamps
+end
+
+create_table :article_categories do |t|
+  t.integer :article_id
+  t.integer :category_id
+  t.timestamps
+end
+
+
+
+######## MODELS ########
+class ApplicationRecord < ActiveRecord::Base
+  self.abstract_class = true
+end
+
+class Article < ApplicationRecord
+  has_many :article_categories
+  has_many :categories, through: :article_categories
+end
+
+class Category < ApplicationRecord
+  validates :name, uniqueness: true
+  has_many :article_categories
+  has_many :articles, through: :article_categories
+end
+
+class ArticleCategory < ApplicationRecord
+  belongs_to :article
+  belongs_to :category
+end
+
+
+####### CREATE RECORDS #######
+article_hash = { title: 'Swim at Barton Springs',
+                description: 'Trying to get 4 together for a game.',
+                author: 'Byron Jones',
+                email: 'byron@jones.com',
+                price: '5.99'}
+
+article = Article.find_or_initialize_by(article_hash)
+article.category = Category.find_or_create_by(name: 'Swim')
+
+article = Article.find(10)
+article.category = Category.find_or_create_by(name: 'Cypher')
+ArticleCategory.all
+
+
+####### QUERY RECORDS #######
+articles = Article.where("title LIKE ?", "%Global%")
+article = Article.all.last
+article.category
+article.category.name
+
+category = Category.last
+category.articles
+category.articles.first.title
+category.articles.first.description
+category.articles.first.author
+category.articles.first.email
+category.articles.first.price
+
+
+article = Article.where("title LIKE ?", "%Global%").first
+article_categories = ArticleCategory.where(article_id: article.id)
+article_categories.map{|x|x.category_id}
+category_id = article_categories.map{|x|x.category_id}.first
+Category.find(category_id)
+
+
+article_categories = ArticleCategory.includes(:article, :category).where(articles: {id: article.id})
+article_categories.first.category.name
+article_categories.first.article.title
+
+####### UPDATE RECORDS #######
+article_categories = ArticleCategory.includes(:article, :category).where(articles: {id: article.id})
+article_categories.first.category.update_attributes(name: 'Jobs')
+
+
+############# MISC ###############
+Horse.includes(:entries,:carried_jockeys).each {|x| p x.entries; p x.carried_jockeys}
+Horse.includes(:entries,:carried_jockeys).each {|x| p x.entries; p x.carried_jockeys}
+
+Contact.includes(:account).where(accounts: {id: 1}, contacts: {id: 1}).first
+State.includes(:legislator).where(legislators: {in_office: true}, states: {state: 'TX'}).all
+
+contacts = Contact.includes(:account).all
+contacts.first.account.id
+Contact.includes(:account).where(accounts: {id: 1}).first
+Contact.includes(:account).where(accounts: {id: 1}, contacts: {id: 1}).first
+Contact.includes(:account).where(accounts: {id: 1}).where(contacts: {id: 1}).first
+Contact.includes(:account).where(accounts: {id: 1}, contacts: {full_name: ‘Contact 100’}).first
+Contact.includes(:account).where(accounts: {id: 1}).where(contacts: {full_name: ‘Contact 100’}).first
+===============
+Contact.find_by(full_name: ‘Contact 100’)
+Contact.includes(:account).find_by(full_name: ‘Contact 100’)
+Contact.includes(:account).find_by(accounts: {id: 1})
+Contact.includes(:account).find_by(accounts: {id: 2}, contacts: {full_name: ‘Contact 300’})
+
+################################
+new_rating = Rating.new(rating: 5)
+new_rating.create_dog(name: 'Spot', owner_id: 1)
+new_rating.save
+
+spot = Dog.find_by(name: 'Spot')
+new_rating = Rating.new(owner_id: 2, dog: spot, rating: 8)
+new_rating.save
+
+new_rating.dog
+jayda = Dog.find_by(name: 'Jayda')
+new_rating.assign_attributes(judge_id: 1, dog: jayda)
+new_rating
+new_rating.dog
